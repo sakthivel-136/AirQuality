@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Gas Prediction System - Enhanced</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: white; margin: 0; padding: 20px; }
+        .container { max-width: 1100px; margin: auto; }
+        .header { text-align: center; padding: 20px; background: rgba(255,255,255,0.05); border-radius: 15px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.1); }
+        .alert-box { display: none; padding: 15px; border-radius: 10px; text-align: center; font-weight: bold; margin-bottom: 20px; animation: pulse 1.5s infinite; }
+        .alert-critical { background: #dc2626; }
+        .alert-warning { background: #f59e0b; }
+        .alert-info { background: #3b82f6; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.02); } 100% { transform: scale(1); } }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+        .card { background: rgba(255,255,255,0.07); padding: 25px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(10px); }
+        .btn-group { display: flex; gap: 10px; margin-top: 15px; }
+        button { flex: 1; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .btn-on { background: #22c55e; color: white; }
+        .btn-off { background: #64748b; color: white; }
+        .btn-export { background: #8b5cf6; color: white; }
+        .val { font-size: 36px; font-weight: bold; color: #3b82f6; margin: 10px 0; }
+        canvas { background: rgba(255,255,255,0.02); border-radius: 10px; padding: 10px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 15px; }
+        .stat-item { text-align: center; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 8px; }
+        .stat-label { font-size: 12px; color: #94a3b8; }
+        .stat-value { font-size: 18px; font-weight: bold; color: #22c55e; }
+        .pattern-indicator { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-left: 5px; }
+        .pattern-rising { background: #ef4444; }
+        .pattern-stable { background: #22c55e; }
+        .pattern-falling { background: #3b82f6; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="dangerAlert" class="alert-box alert-critical">⚠️ CRITICAL: Dangerous gas levels predicted within 2 hours</div>
+    <div id="warningAlert" class="alert-box alert-warning">⚠️ WARNING: Gas levels rising - Monitor closely</div>
+    <div id="infoAlert" class="alert-box alert-info">ℹ️ Pattern detected: Gas levels following normal trend</div>
+
+    <div class="header">
+        <h1>Multi-Zone Environment Prediction - Enhanced</h1>
+        <p>Powered by Weighted Linear Regression AI Engine</p>
+    </div>
+
+    <div class="grid">
+        <div class="card">
+            <h3>System Status & Control</h3>
+            <div id="statusText" style="color: #22c55e;">● System Active</div>
+            <div class="btn-group">
+                <button class="btn-on" onclick="sendControl('TURN_ON')">START MONITORING</button>
+                <button class="btn-off" onclick="sendControl('TURN_OFF')">STOP DEVICE</button>
+            </div>
+            <hr style="margin: 20px 0; border: 0; border-top: 1px solid rgba(255,255,255,0.1);">
+            <h3>Flame Sensor</h3>
+            <div id="fireStatus" class="val" style="color:#22c55e">SAFE</div>
+            <div style="margin-top: 10px;">
+                <span style="font-size: 14px;">Trend:</span>
+                <span id="trendIndicator" class="pattern-indicator pattern-stable"></span>
+                <span id="trendText" style="font-size: 14px;">Stable</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Live Gas Concentration</h3>
+            <div id="currentGas" class="val">-- PPM</div>
+            <p>Sampling Rate: Every 3 Minutes</p>
+            <div style="font-size: 12px; color: #94a3b8;">Last Update: <span id="lastUpdate">--</span></div>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-label">24h Avg</div>
+                    <div class="stat-value" id="avg24h">--</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Peak</div>
+                    <div class="stat-value" id="peakValue">--</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Min</div>
+                    <div class="stat-value" id="minValue">--</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card" style="margin-top: 20px;">
+        <h3>Gas Level: Historical vs AI Prediction (2-Hour Window)</h3>
+        <canvas id="predictionChart" height="100"></canvas>
+        <div class="btn-group" style="margin-top: 15px;">
+            <button class="btn-export" onclick="exportData()">📊 Export Data</button>
+            <button class="btn-export" onclick="toggleAnalysis()">📈 Show Analysis</button>
+        </div>
+        <div id="analysisPanel" style="display: none; margin-top: 15px; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px;">
+            <h4>Pattern Analysis</h4>
+            <div id="analysisText" style="font-size: 14px; line-height: 1.6;"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const CH_ID = '3221984';
+    const READ_KEY = 'KXC8HUPVGG8AKVXD';
+    const TB_ID = '64U4IA5216OLCOX8';
+    const TB_KEY = 'AKT7J4I46XGYM7VY';
+    const DANGER_THRESHOLD = 600;
+    const WARNING_THRESHOLD = 400;
+    const MAX_REALISTIC_VALUE = 2000; // Filter out unrealistic spikes
+
+    let myChart;
+    let historicalData = [];
+    let cacheExpiry = 0;
+    const CACHE_DURATION = 60000; // 1 minute cache
+
+    // Initialize with cached data if available
+    function initializeFromCache() {
+        const cached = localStorage.getItem('gasDataCache');
+        const cacheTime = localStorage.getItem('gasDataCacheTime');
+        
+        if (cached && cacheTime && (Date.now() - parseInt(cacheTime)) < CACHE_DURATION) {
+            const data = JSON.parse(cached);
+            historicalData = data.historicalData || [];
+            if (historicalData.length > 0) {
+                updateUIWithCachedData();
+            }
+        }
+    }
+
+    function updateUIWithCachedData() {
+        if (historicalData.length > 0) {
+            const latest = historicalData[historicalData.length - 1];
+            document.getElementById('currentGas').innerText = latest.value + " PPM";
+            document.getElementById('lastUpdate').innerText = new Date(latest.timestamp).toLocaleTimeString();
+            
+            // Calculate stats
+            updateStatistics();
+        }
+    }
+
+    async function sendControl(cmd) {
+        try {
+            await fetch(`https://api.thingspeak.com/talkbacks/${TB_ID}/commands.json?api_key=${TB_KEY}&command_string=${cmd}`, {method: 'POST'});
+            showNotification("Command Sent: " + cmd, "info");
+            document.getElementById('statusText').innerText = (cmd === 'TURN_ON') ? "● System Active" : "○ System Paused";
+            document.getElementById('statusText').style.color = (cmd === 'TURN_ON') ? "#22c55e" : "#94a3b8";
+        } catch (e) { 
+            console.error("Control Error", e);
+            showNotification("Failed to send command", "error");
+        }
+    }
+
+    function validateData(value) {
+        if (value === null || isNaN(value)) return null;
+        if (value > MAX_REALISTIC_VALUE) return null;
+        return value;
+    }
+
+    function weightedLinearRegression(data) {
+        const weights = data.map((_, i) => Math.pow(1.1, i)); // Exponential weights for recent data
+        const n = data.length;
+        const x = Array.from({length: n}, (_, i) => i);
+        
+        let wxSum = 0, wySum = 0, wxySum = 0, wx2Sum = 0, wSum = 0;
+        
+        for(let i = 0; i < n; i++) {
+            const w = weights[i];
+            wxSum += w * x[i];
+            wySum += w * data[i];
+            wxySum += w * x[i] * data[i];
+            wx2Sum += w * x[i] * x[i];
+            wSum += w;
+        }
+        
+        const slope = (wSum * wxySum - wxSum * wySum) / (wSum * wx2Sum - wxSum * wxSum);
+        const intercept = (wySum - slope * wxSum) / wSum;
+        
+        return { slope, intercept };
+    }
+
+    function detectPattern(data) {
+        if (data.length < 3) return { trend: 'stable', confidence: 0 };
+        
+        const recent = data.slice(-5);
+        const avg = recent.reduce((a, b) => a + b, 0) / recent.length;
+        const older = data.slice(-10, -5);
+        const oldAvg = older.reduce((a, b) => a + b, 0) / older.length;
+        
+        const change = (avg - oldAvg) / oldAvg;
+        
+        if (change > 0.1) return { trend: 'rising', confidence: Math.min(change * 100, 100) };
+        if (change < -0.1) return { trend: 'falling', confidence: Math.min(Math.abs(change) * 100, 100) };
+        return { trend: 'stable', confidence: 100 - Math.abs(change) * 100 };
+    }
+
+    async function updateDashboard() {
+        try {
+            const response = await fetch(`https://api.thingspeak.com/channels/${CH_ID}/feeds.json?api_key=${READ_KEY}&results=30`);
+            const data = await response.json();
+            const feeds = data.feeds;
+
+            // Process and validate data
+            const processedData = feeds.map(feed => ({
+                value: validateData(parseFloat(feed.field1)),
+                fire: feed.field2,
+                timestamp: feed.created_at
+            })).filter(item => item.value !== null);
+
+            historicalData = processedData;
+
+            // Cache the data
+            localStorage.setItem('gasDataCache', JSON.stringify({ historicalData }));
+            localStorage.setItem('gasDataCacheTime', Date.now().toString());
+
+            // Update UI
+            const latest = processedData[processedData.length - 1];
+            document.getElementById('currentGas').innerText = latest.value.toFixed(1) + " PPM";
+            document.getElementById('fireStatus').innerText = (latest.fire == "0") ? "🔥 FIRE!!" : "SAFE";
+            document.getElementById('fireStatus').style.color = (latest.fire == "0") ? "#ef4444" : "#22c55e";
+            document.getElementById('lastUpdate').innerText = new Date(latest.timestamp).toLocaleTimeString();
+
+            // Update statistics
+            updateStatistics();
+
+            // Pattern detection
+            const pattern = detectPattern(processedData.map(d => d.value));
+            updateTrendIndicator(pattern);
+
+            // Enhanced prediction with weighted regression
+            const values = processedData.map(d => d.value);
+            const { slope, intercept } = weightedLinearRegression(values);
+
+            // Forecast next 40 intervals (Approx 2 hours at 3-min intervals)
+            let predictions = [];
+            let maxPrediction = 0;
+            for(let i = 1; i <= 40; i++) {
+                let pVal = slope * (values.length + i) + intercept;
+                predictions.push(Math.max(0, pVal)); // Ensure non-negative
+                maxPrediction = Math.max(maxPrediction, pVal);
+            }
+
+            // Enhanced alert system
+            updateAlerts(maxPrediction, pattern);
+
+            renderChart(values, predictions);
+        } catch (e) { 
+            console.error("Fetch Error", e);
+            showNotification("Failed to fetch data. Using cached data.", "warning");
+        }
+    }
+
+    function updateStatistics() {
+        if (historicalData.length === 0) return;
+        
+        const values = historicalData.map(d => d.value);
+        const avg = values.reduce((a, b) => a + b, 0) / values.length;
+        const max = Math.max(...values);
+        const min = Math.min(...values);
+        
+        document.getElementById('avg24h').innerText = avg.toFixed(1);
+        document.getElementById('peakValue').innerText = max.toFixed(1);
+        document.getElementById('minValue').innerText = min.toFixed(1);
+    }
+
+    function updateTrendIndicator(pattern) {
+        const indicator = document.getElementById('trendIndicator');
+        const text = document.getElementById('trendText');
+        
+        indicator.className = 'pattern-indicator';
+        if (pattern.trend === 'rising') {
+            indicator.classList.add('pattern-rising');
+            text.innerText = 'Rising';
+        } else if (pattern.trend === 'falling') {
+            indicator.classList.add('pattern-falling');
+            text.innerText = 'Falling';
+        } else {
+            indicator.classList.add('pattern-stable');
+            text.innerText = 'Stable';
+        }
+    }
+
+    function updateAlerts(maxPrediction, pattern) {
+        document.getElementById('dangerAlert').style.display = 'none';
+        document.getElementById('warningAlert').style.display = 'none';
+        document.getElementById('infoAlert').style.display = 'none';
+        
+        if (maxPrediction > DANGER_THRESHOLD) {
+            document.getElementById('dangerAlert').style.display = 'block';
+        } else if (maxPrediction > WARNING_THRESHOLD || pattern.trend === 'rising') {
+            document.getElementById('warningAlert').style.display = 'block';
+        } else if (pattern.confidence > 70) {
+            document.getElementById('infoAlert').style.display = 'block';
+        }
+    }
+
+    function renderChart(history, forecast) {
+        const ctx = document.getElementById('predictionChart').getContext('2d');
+        if (myChart) myChart.destroy();
+
+        myChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [...Array(history.length).fill("Past"), ...Array(forecast.length).fill("Future")],
+                datasets: [{
+                    label: 'Historical Gas Level',
+                    data: history,
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    fill: true,
+                    tension: 0.3
+                }, {
+                    label: 'AI Prediction (2-Hr Trend)',
+                    data: [...Array(history.length).fill(null), ...forecast],
+                    borderColor: '#ef4444',
+                    borderDash: [5, 5],
+                    fill: false
+                }, {
+                    label: 'Danger Threshold',
+                    data: Array(history.length + forecast.length).fill(DANGER_THRESHOLD),
+                    borderColor: '#dc2626',
+                    borderDash: [2, 2],
+                    fill: false,
+                    pointRadius: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: { 
+                    y: { 
+                        beginAtZero: false, 
+                        grid: { color: 'rgba(255,255,255,0.1)' },
+                        ticks: { color: '#94a3b8' }
+                    },
+                    x: {
+                        grid: { color: 'rgba(255,255,255,0.05)' },
+                        ticks: { color: '#94a3b8' }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        labels: { color: '#e2e8f0' }
+                    }
+                }
+            }
+        });
+    }
+
+    function exportData() {
+        if (historicalData.length === 0) {
+            showNotification("No data to export", "warning");
+            return;
+        }
+        
+        const csvContent = "data:text/csv;charset=utf-8," 
+            + "Timestamp,Value (PPM),Fire Status\n"
+            + historicalData.map(e => `${e.timestamp},${e.value},${e.fire}`).join("\n");
+        
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `gas_data_${new Date().toISOString()}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        showNotification("Data exported successfully", "success");
+    }
+
+    function toggleAnalysis() {
+        const panel = document.getElementById('analysisPanel');
+        const isVisible = panel.style.display !== 'none';
+        
+        if (!isVisible) {
+            generateAnalysis();
+            panel.style.display = 'block';
+        } else {
+            panel.style.display = 'none';
+        }
+    }
+
+    function generateAnalysis() {
+        if (historicalData.length === 0) {
+            document.getElementById('analysisText').innerText = "Insufficient data for analysis";
+            return;
+        }
+        
+        const values = historicalData.map(d => d.value);
+        const pattern = detectPattern(values);
+        const avg = values.reduce((a, b) => a + b, 0) / values.length;
+        const stdDev = Math.sqrt(values.reduce((sq, n) => sq + Math.pow(n - avg, 2), 0) / values.length);
+        
+        const analysis = `
+            <strong>Statistical Analysis:</strong><br>
+            • Current Trend: ${pattern.trend.charAt(0).toUpperCase() + pattern.trend.slice(1)} (${pattern.confidence.toFixed(1)}% confidence)<br>
+            • Average Level: ${avg.toFixed(1)} PPM<br>
+            • Standard Deviation: ${stdDev.toFixed(1)} PPM<br>
+            • Data Points Analyzed: ${values.length}<br>
+            • Risk Assessment: ${avg > WARNING_THRESHOLD ? 'Elevated' : 'Normal'}<br>
+            <br>
+            <strong>Recommendations:</strong><br>
+            ${pattern.trend === 'rising' ? '• Monitor closely - levels are increasing' : ''}
+            ${avg > WARNING_THRESHOLD ? '• Consider ventilation - levels above warning threshold' : ''}
+            ${stdDev > 100 ? '• High volatility detected - check for leaks' : ''}
+            ${pattern.confidence > 80 ? '• Strong pattern detected - predictions are reliable' : ''}
+        `;
+        
+        document.getElementById('analysisText').innerHTML = analysis;
+    }
+
+    function showNotification(message, type) {
+        // Create a simple notification (you could enhance this with a toast library)
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed; top: 20px; right: 20px; padding: 15px; border-radius: 8px;
+            background: ${type === 'error' ? '#dc2626' : type === 'warning' ? '#f59e0b' : type === 'success' ? '#22c55e' : '#3b82f6'};
+            color: white; z-index: 1000; animation: slideIn 0.3s ease;
+        `;
+        notification.innerText = message;
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            notification.style.animation = 'slideOut 0.3s ease';
+            setTimeout(() => document.body.removeChild(notification), 300);
+        }, 3000);
+    }
+
+    // Add slide animations
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
+    `;
+    document.head.appendChild(style);
+
+    // Initialize
+    initializeFromCache();
+    setInterval(updateDashboard, 30000);
+    updateDashboard();
+</script>
+
+</body>
+</html>
