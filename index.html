@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GasGuard Pro - Live Prediction System</title>
+    <title>GasGuard Pro - Health & Safety Monitor</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -20,6 +20,10 @@
             --border: #334155;
             --text: #e2e8f0;
             --text-dim: #94a3b8;
+            --health-low: #10b981;
+            --health-moderate: #f59e0b;
+            --health-high: #ef4444;
+            --health-severe: #dc2626;
         }
 
         body {
@@ -114,27 +118,127 @@
             100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
         }
 
-        .alert-banner {
+        .health-popup {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
             display: none;
-            padding: 1rem 2rem;
-            background: var(--danger);
-            color: white;
-            text-align: center;
-            font-weight: 600;
-            animation: slideDown 0.3s ease;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            backdrop-filter: blur(5px);
         }
 
-        .alert-banner.warning {
-            background: var(--warning);
+        .health-popup.active {
+            display: flex;
+            animation: fadeIn 0.3s ease;
         }
 
-        .alert-banner.info {
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .health-popup-content {
+            background: var(--card);
+            border-radius: 16px;
+            padding: 2rem;
+            max-width: 500px;
+            width: 90%;
+            border: 1px solid var(--border);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            transform: scale(0.9);
+            transition: transform 0.3s ease;
+        }
+
+        .health-popup.active .health-popup-content {
+            transform: scale(1);
+        }
+
+        .health-popup-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .health-popup-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+
+        .health-popup-icon.low {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--health-low);
+        }
+
+        .health-popup-icon.moderate {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--health-moderate);
+        }
+
+        .health-popup-icon.high {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--health-high);
+        }
+
+        .health-popup-icon.severe {
+            background: rgba(220, 38, 38, 0.1);
+            color: var(--health-severe);
+        }
+
+        .health-popup-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .health-popup-message {
+            margin-bottom: 1.5rem;
+            line-height: 1.6;
+        }
+
+        .health-popup-recommendations {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .health-popup-recommendations h4 {
+            margin-bottom: 0.5rem;
+            font-size: 1rem;
+        }
+
+        .health-popup-recommendations ul {
+            padding-left: 1.5rem;
+        }
+
+        .health-popup-recommendations li {
+            margin-bottom: 0.5rem;
+        }
+
+        .health-popup-close {
             background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 0.75rem 1.5rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 100%;
         }
 
-        @keyframes slideDown {
-            from { transform: translateY(-100%); }
-            to { transform: translateY(0); }
+        .health-popup-close:hover {
+            background: #0284c7;
         }
 
         .container {
@@ -164,6 +268,12 @@
             justify-content: center;
             position: relative;
             overflow: hidden;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .current-value-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
         }
 
         .current-value-card.disconnected::before {
@@ -264,6 +374,12 @@
             flex-direction: column;
             position: relative;
             overflow: hidden;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .prediction-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
         }
 
         .prediction-card.disconnected::before {
@@ -348,6 +464,12 @@
             flex-direction: column;
             min-height: 500px;
             position: relative;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .chart-container:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
         }
 
         .chart-container.disconnected::before {
@@ -392,6 +514,34 @@
             position: relative;
         }
 
+        .prediction-display {
+            background: linear-gradient(135deg, rgba(14, 165, 233, 0.1), rgba(14, 165, 233, 0.05));
+            border: 1px solid var(--primary);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .prediction-display-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--text-dim);
+        }
+
+        .prediction-display-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .prediction-display-time {
+            font-size: 0.875rem;
+            color: var(--text-dim);
+        }
+
         .controls {
             display: flex;
             gap: 1rem;
@@ -420,11 +570,6 @@
         .control-btn.secondary {
             background: var(--border);
             color: var(--text);
-        }
-
-        .control-btn.danger {
-            background: var(--danger);
-            color: white;
         }
 
         .control-btn:disabled {
@@ -467,6 +612,255 @@
             color: var(--text-dim);
         }
 
+        .prediction-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+            font-size: 0.875rem;
+        }
+
+        .prediction-status i {
+            font-size: 1rem;
+        }
+
+        .prediction-status.valid {
+            color: var(--success);
+        }
+
+        .prediction-status.invalid {
+            color: var(--warning);
+        }
+
+        .health-indicator {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .health-indicator:hover {
+            transform: scale(1.1);
+        }
+
+        .health-indicator.low {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--health-low);
+        }
+
+        .health-indicator.moderate {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--health-moderate);
+        }
+
+        .health-indicator.high {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--health-high);
+        }
+
+        .health-indicator.severe {
+            background: rgba(220, 38, 38, 0.1);
+            color: var(--health-severe);
+        }
+
+        .report-container {
+            background: var(--card);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            margin-top: 2rem;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .report-header {
+            padding: 1.5rem;
+            background: rgba(14, 165, 233, 0.1);
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .report-header:hover {
+            background: rgba(14, 165, 233, 0.15);
+        }
+
+        .report-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .report-toggle {
+            transition: transform 0.3s ease;
+        }
+
+        .report-toggle.expanded {
+            transform: rotate(180deg);
+        }
+
+        .report-content {
+            padding: 0;
+            max-height: 0;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .report-content.expanded {
+            padding: 1.5rem;
+            max-height: 1000px;
+        }
+
+        .report-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .report-section:last-child {
+            margin-bottom: 0;
+        }
+
+        .report-section-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .stat-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 1rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            color: var(--text-dim);
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .health-impact {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 1rem;
+            border-left: 4px solid var(--success);
+        }
+
+        .health-impact.moderate {
+            border-left-color: var(--warning);
+        }
+
+        .health-impact.high {
+            border-left-color: var(--danger);
+        }
+
+        .health-impact.severe {
+            border-left-color: var(--health-severe);
+        }
+
+        .health-impact-title {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .health-impact-message {
+            color: var(--text-dim);
+            margin-bottom: 1rem;
+        }
+
+        .health-impact-recommendations {
+            font-size: 0.875rem;
+        }
+
+        .health-impact-recommendations h5 {
+            margin-bottom: 0.5rem;
+            color: var(--text);
+        }
+
+        .health-impact-recommendations ul {
+            padding-left: 1.5rem;
+        }
+
+        .health-impact-recommendations li {
+            margin-bottom: 0.25rem;
+            color: var(--text-dim);
+        }
+
+        .prediction-analysis {
+            background: rgba(14, 165, 233, 0.05);
+            border-radius: 8px;
+            padding: 1rem;
+            border: 1px solid rgba(14, 165, 233, 0.2);
+        }
+
+        .prediction-analysis-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+
+        .prediction-analysis-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .prediction-analysis-label {
+            color: var(--text-dim);
+        }
+
+        .prediction-analysis-value {
+            font-weight: 600;
+        }
+
+        .data-trend {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .trend-arrow {
+            font-size: 1rem;
+        }
+
+        .trend-arrow.up {
+            color: var(--danger);
+        }
+
+        .trend-arrow.down {
+            color: var(--success);
+        }
+
+        .trend-arrow.stable {
+            color: var(--text-dim);
+        }
+
         @media (max-width: 1024px) {
             .metrics-row {
                 grid-template-columns: 1fr;
@@ -479,7 +873,7 @@
 <div class="header">
     <div class="logo">
         <i class="fas fa-shield-alt"></i>
-        <h1>GasGuard Pro - Live Prediction</h1>
+        <h1>GasGuard Pro - Health & Safety Monitor</h1>
     </div>
     <div class="status-bar">
         <div class="connection-status" id="connectionStatus">
@@ -492,9 +886,27 @@
     </div>
 </div>
 
-<div class="alert-banner" id="alertBanner">
-    <i class="fas fa-exclamation-triangle"></i> 
-    <span id="alertMessage">Alert message here</span>
+<div class="health-popup" id="healthPopup">
+    <div class="health-popup-content">
+        <div class="health-popup-header">
+            <div class="health-popup-icon" id="healthPopupIcon">
+                <i class="fas fa-heart"></i>
+            </div>
+            <h2 class="health-popup-title" id="healthPopupTitle">Health Alert</h2>
+        </div>
+        <div class="health-popup-message" id="healthPopupMessage">
+            Message about health risks
+        </div>
+        <div class="health-popup-recommendations">
+            <h4>Recommendations:</h4>
+            <ul id="healthPopupRecommendations">
+                <li>Recommendation 1</li>
+                <li>Recommendation 2</li>
+                <li>Recommendation 3</li>
+            </ul>
+        </div>
+        <button class="health-popup-close" onclick="closeHealthPopup()">I Understand</button>
+    </div>
 </div>
 
 <div class="container">
@@ -504,6 +916,9 @@
                 <i class="fas fa-wifi-slash disconnected-icon"></i>
                 <div class="disconnected-text">No Data Available</div>
                 <div class="disconnected-subtext">Unable to connect to ThingSpeak. Please check your connection.</div>
+            </div>
+            <div class="health-indicator" id="healthIndicator" onclick="showHealthDetails()">
+                <i class="fas fa-heart"></i>
             </div>
             <div class="current-label">Current Gas Level</div>
             <div>
@@ -528,6 +943,10 @@
             </div>
             <div class="prediction-value safe" id="predictionValue">--</div>
             <div class="prediction-time">Based on current trend analysis</div>
+            <div class="prediction-status" id="predictionStatus">
+                <i class="fas fa-check-circle"></i>
+                <span>Ready to calculate</span>
+            </div>
             <div class="prediction-confidence">
                 <span>Confidence:</span>
                 <div class="confidence-bar">
@@ -552,6 +971,17 @@
         </div>
     </div>
 
+    <div class="prediction-display" id="predictionDisplay">
+        <div>
+            <div class="prediction-display-title">AI Prediction for Next 2 Hours</div>
+            <div class="prediction-display-time">Based on current trend analysis</div>
+        </div>
+        <div style="text-align: right;">
+            <div class="prediction-display-value" id="predictionDisplayValue">-- PPM</div>
+            <div class="prediction-time">Confidence: <span id="predictionDisplayConfidence">--%</span></div>
+        </div>
+    </div>
+
     <div class="chart-container" id="chartContainer">
         <div class="chart-overlay" id="chartOverlay" style="display: none;">
             <i class="fas fa-chart-line disconnected-icon"></i>
@@ -561,25 +991,110 @@
             <div class="connection-info" id="connectionInfo">Connection attempt failed. Will retry automatically in 30 seconds.</div>
         </div>
         <div class="chart-header">
-            <h2 class="chart-title">Live Gas Level & 2-Hour Prediction</h2>
+            <h2 class="chart-title">Live Gas Level Trends</h2>
         </div>
         <div class="chart-wrapper">
             <canvas id="gasChart"></canvas>
         </div>
     </div>
 
+    <div class="report-container" id="reportContainer">
+        <div class="report-header" onclick="toggleReport()">
+            <div class="report-title">
+                <i class="fas fa-file-alt"></i>
+                Analytic Report
+            </div>
+            <i class="fas fa-chevron-down report-toggle" id="reportToggle"></i>
+        </div>
+        <div class="report-content" id="reportContent">
+            <div class="report-section">
+                <h3 class="report-section-title">
+                    <i class="fas fa-chart-bar"></i>
+                    Summary Statistics
+                </h3>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-label">Period</div>
+                        <div class="stat-value" id="reportPeriod">--</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Data Points</div>
+                        <div class="stat-value" id="reportDataPoints">--</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Minimum Level</div>
+                        <div class="stat-value" id="reportMin">-- PPM</div>
+                        <div class="data-trend" id="minTrend"></div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Maximum Level</div>
+                        <div class="stat-value" id="reportMax">-- PPM</div>
+                        <div class="data-trend" id="maxTrend"></div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Average Level</div>
+                        <div class="stat-value" id="reportAvg">-- PPM</div>
+                        <div class="data-trend" id="avgTrend"></div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Risk Level</div>
+                        <div class="stat-value" id="reportRisk">--</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="report-section">
+                <h3 class="report-section-title">
+                    <i class="fas fa-heartbeat"></i>
+                    Health Impact Assessment
+                </h3>
+                <div class="health-impact" id="healthImpact">
+                    <div class="health-impact-title" id="healthImpactTitle">Loading...</div>
+                    <div class="health-impact-message" id="healthImpactMessage">Analyzing data...</div>
+                    <div class="health-impact-recommendations">
+                        <h5>Recommendations:</h5>
+                        <ul id="healthImpactRecommendations">
+                            <li>Loading recommendations...</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="report-section">
+                <h3 class="report-section-title">
+                    <i class="fas fa-brain"></i>
+                    Prediction Analysis
+                </h3>
+                <div class="prediction-analysis" id="predictionAnalysis">
+                    <div class="prediction-analysis-item">
+                        <span class="prediction-analysis-label">Predicted Level in 2 Hours:</span>
+                        <span class="prediction-analysis-value" id="predAnalysisLevel">-- PPM</span>
+                    </div>
+                    <div class="prediction-analysis-item">
+                        <span class="prediction-analysis-label">Prediction Confidence:</span>
+                        <span class="prediction-analysis-value" id="predAnalysisConfidence">--%</span>
+                    </div>
+                    <div class="prediction-analysis-item">
+                        <span class="prediction-analysis-label">Trend Direction:</span>
+                        <span class="prediction-analysis-value" id="predAnalysisTrend">--</span>
+                    </div>
+                    <div class="prediction-analysis-item">
+                        <span class="prediction-analysis-label">Rate of Change:</span>
+                        <span class="prediction-analysis-value" id="predAnalysisRate">-- PPM/hr</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="controls">
-        <button class="control-btn primary" id="ventilateBtn" onclick="sendControl('VENTILATE')">
-            <i class="fas fa-fan"></i>
-            Ventilate
+        <button class="control-btn primary" id="downloadBtn" onclick="downloadData()">
+            <i class="fas fa-download"></i>
+            Download Data
         </button>
-        <button class="control-btn secondary" onclick="refreshData()">
+        <button class="control-btn secondary" id="refreshBtn" onclick="refreshData()">
             <i class="fas fa-sync"></i>
             Refresh Data
-        </button>
-        <button class="control-btn danger" id="emergencyBtn" onclick="sendControl('EMERGENCY')">
-            <i class="fas fa-exclamation-triangle"></i>
-            Emergency
         </button>
     </div>
 
@@ -595,6 +1110,8 @@
     const TB_KEY = 'AKT7J4I46XGYM7VY';
     const DANGER_THRESHOLD = 600;
     const WARNING_THRESHOLD = 400;
+    const MIN_DATA_POINTS = 5;
+    const MAX_DATA_POINTS = 20;
 
     let gasChart;
     let historicalData = [];
@@ -603,6 +1120,54 @@
     let retryCount = 0;
     let maxRetries = 5;
     let autoRetryInterval;
+    let predictionData = null;
+    let lastHealthAlertLevel = null;
+    let previousStats = null; // Store previous statistics for trend comparison
+
+    // Health risk levels and recommendations
+    const healthRisks = {
+        low: {
+            threshold: 50,
+            title: "Good Air Quality",
+            message: "Current gas levels are within safe limits for all individuals, including those with respiratory conditions.",
+            recommendations: [
+                "Continue normal activities",
+                "Maintain good ventilation practices",
+                "Monitor levels periodically"
+            ]
+        },
+        moderate: {
+            threshold: 200,
+            title: "Moderate Air Quality",
+            message: "Gas levels may cause minor discomfort for sensitive individuals, including those with asthma or other respiratory conditions.",
+            recommendations: [
+                "Consider limiting prolonged outdoor activities",
+                "Ensure proper ventilation in indoor spaces",
+                "Individuals with asthma should keep medication readily available"
+            ]
+        },
+        high: {
+            threshold: 400,
+            title: "Poor Air Quality",
+            message: "Gas levels may cause health effects for sensitive individuals and could cause discomfort for the general population.",
+            recommendations: [
+                "Limit outdoor activities, especially for sensitive groups",
+                "Keep windows closed and use air purifiers if available",
+                "Individuals with respiratory conditions should avoid outdoor exertion"
+            ]
+        },
+        severe: {
+            threshold: 600,
+            title: "Hazardous Air Quality",
+            message: "Gas levels at this range pose serious health risks to all individuals, particularly those with respiratory conditions.",
+            recommendations: [
+                "Avoid all outdoor activities",
+                "Stay indoors with windows and doors closed",
+                "Use air purifiers if available",
+                "Seek medical attention if experiencing symptoms like difficulty breathing"
+            ]
+        }
+    };
 
     // Initialize chart
     function initChart() {
@@ -619,17 +1184,8 @@
                         borderWidth: 3,
                         fill: true,
                         tension: 0.4,
-                        pointRadius: 4,
-                        pointHoverRadius: 6
-                    },
-                    {
-                        label: '2-Hour Prediction',
-                        data: [],
-                        borderColor: '#ef4444',
-                        borderWidth: 3,
-                        borderDash: [5, 5],
-                        fill: false,
-                        pointRadius: 0
+                        pointRadius: 6,
+                        pointHoverRadius: 8
                     },
                     {
                         label: 'Warning Level',
@@ -727,6 +1283,328 @@
         });
     }
 
+    // Improved linear regression with error handling
+    function calculateLinearRegression(x, y) {
+        if (x.length !== y.length || x.length < MIN_DATA_POINTS) {
+            return null;
+        }
+
+        const n = x.length;
+        let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+        
+        for (let i = 0; i < n; i++) {
+            sumX += x[i];
+            sumY += y[i];
+            sumXY += x[i] * y[i];
+            sumX2 += x[i] * x[i];
+        }
+
+        const denominator = n * sumX2 - sumX * sumX;
+        
+        // Check for division by zero
+        if (Math.abs(denominator) < 0.0001) {
+            console.warn('Linear regression: Denominator too small');
+            return null;
+        }
+
+        const slope = (n * sumXY - sumX * sumY) / denominator;
+        const intercept = (sumY - slope * sumX) / n;
+
+        // Calculate R-squared for confidence
+        let yMean = sumY / n;
+        let ssTotal = 0, ssResidual = 0;
+        
+        for (let i = 0; i < n; i++) {
+            const yPred = slope * x[i] + intercept;
+            ssTotal += Math.pow(y[i] - yMean, 2);
+            ssResidual += Math.pow(y[i] - yPred, 2);
+        }
+
+        const rSquared = ssTotal > 0 ? 1 - (ssResidual / ssTotal) : 0;
+        const confidence = Math.min(95, Math.max(30, rSquared * 100));
+
+        return { slope, intercept, confidence, rSquared };
+    }
+
+    // Improved prediction generation
+    function generatePrediction() {
+        const predictionStatus = document.getElementById('predictionStatus');
+        
+        if (historicalData.length < MIN_DATA_POINTS) {
+            predictionStatus.className = 'prediction-status invalid';
+            predictionStatus.innerHTML = '<i class="fas fa-exclamation-circle"></i><span>Insufficient data</span>';
+            resetPrediction();
+            return;
+        }
+
+        // Use the most recent data points
+        const recent = historicalData.slice(-MAX_DATA_POINTS);
+        const n = recent.length;
+        const x = Array.from({length: n}, (_, i) => i);
+        const y = recent.map(d => d.value);
+
+        // Check for data consistency
+        const yVariance = calculateVariance(y);
+        if (yVariance < 1) {
+            predictionStatus.className = 'prediction-status invalid';
+            predictionStatus.innerHTML = '<i class="fas fa-exclamation-circle"></i><span>Data too stable</span>';
+            resetPrediction();
+            return;
+        }
+
+        const regression = calculateLinearRegression(x, y);
+        
+        if (!regression) {
+            predictionStatus.className = 'prediction-status invalid';
+            predictionStatus.innerHTML = '<i class="fas fa-exclamation-circle"></i><span>Cannot calculate trend</span>';
+            resetPrediction();
+            return;
+        }
+
+        // Generate predictions for next 2 hours (40 points at 3-minute intervals)
+        const predictions = [];
+        const now = new Date();
+        let maxPrediction = 0;
+        
+        for (let i = 1; i <= 40; i++) {
+            const futureTime = new Date(now.getTime() + i * 3 * 60 * 1000);
+            const predictedValue = regression.slope * (n + i) + regression.intercept;
+            const clampedValue = Math.max(0, predictedValue);
+            predictions.push({
+                x: futureTime,
+                y: clampedValue
+            });
+            maxPrediction = Math.max(maxPrediction, clampedValue);
+        }
+
+        // Store prediction data
+        predictionData = {
+            predictions,
+            confidence: regression.confidence,
+            maxPrediction,
+            slope: regression.slope,
+            rateOfChange: regression.slope * 20 // PPM per hour (3 min intervals * 20)
+        };
+
+        // Update UI
+        updatePredictionUI();
+        predictionStatus.className = 'prediction-status valid';
+        predictionStatus.innerHTML = '<i class="fas fa-check-circle"></i><span>Prediction calculated</span>';
+        
+        // Update report
+        updateReport();
+    }
+
+    function calculateVariance(values) {
+        const mean = values.reduce((a, b) => a + b, 0) / values.length;
+        return values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length;
+    }
+
+    function resetPrediction() {
+        predictionData = null;
+        document.getElementById('predictionValue').textContent = '--';
+        document.getElementById('predictionDisplayValue').textContent = '-- PPM';
+        document.getElementById('confidenceFill').style.width = '0%';
+        document.getElementById('confidenceText').textContent = '--%';
+        document.getElementById('predictionDisplayConfidence').textContent = '--%';
+        document.getElementById('riskLevel').textContent = 'Low';
+        document.getElementById('riskDescription').textContent = 'Cannot assess risk';
+    }
+
+    function updatePredictionUI() {
+        if (!predictionData) return;
+
+        const { predictions, confidence, maxPrediction, slope } = predictionData;
+        
+        // Update prediction value
+        const predictionValueElement = document.getElementById('predictionValue');
+        const finalPrediction = predictions[predictions.length - 1].y;
+        predictionValueElement.textContent = finalPrediction.toFixed(1) + ' PPM';
+        
+        // Update prediction display
+        document.getElementById('predictionDisplayValue').textContent = finalPrediction.toFixed(1) + ' PPM';
+        document.getElementById('predictionDisplayConfidence').textContent = confidence.toFixed(0) + '%';
+        
+        // Update prediction status color
+        if (finalPrediction > DANGER_THRESHOLD) {
+            predictionValueElement.className = 'prediction-value danger';
+        } else if (finalPrediction > WARNING_THRESHOLD) {
+            predictionValueElement.className = 'prediction-value warning';
+        } else {
+            predictionValueElement.className = 'prediction-value safe';
+        }
+        
+        // Update confidence
+        document.getElementById('confidenceFill').style.width = confidence + '%';
+        document.getElementById('confidenceText').textContent = confidence.toFixed(0) + '%';
+        
+        // Update risk assessment
+        updateRiskAssessment(finalPrediction, confidence, slope);
+    }
+
+    function updateRiskAssessment(predictionValue, confidence, slope) {
+        const riskLevelElement = document.getElementById('riskLevel');
+        const riskDescriptionElement = document.getElementById('riskDescription');
+        
+        let riskLevel = 'Low';
+        let riskDescription = 'Gas levels are expected to remain safe';
+        let riskColor = 'safe';
+        
+        if (predictionValue > DANGER_THRESHOLD) {
+            riskLevel = 'High';
+            riskDescription = 'Dangerous levels expected in 2 hours';
+            riskColor = 'danger';
+        } else if (predictionValue > WARNING_THRESHOLD) {
+            riskLevel = 'Medium';
+            riskDescription = 'Warning levels expected in 2 hours';
+            riskColor = 'warning';
+        } else if (Math.abs(slope) > 5) {
+            riskLevel = 'Moderate';
+            riskDescription = 'Rapid changes detected - monitor closely';
+            riskColor = 'warning';
+        }
+        
+        riskLevelElement.textContent = riskLevel;
+        riskLevelElement.className = 'prediction-value ' + riskColor;
+        riskDescriptionElement.textContent = `${riskDescription} (${confidence.toFixed(0)}% confidence)`;
+    }
+
+    function updateReport() {
+        if (historicalData.length === 0) return;
+        
+        // Calculate statistics based on real-time data
+        const values = historicalData.map(d => d.value);
+        const min = Math.min(...values);
+        const max = Math.max(...values);
+        const avg = values.reduce((a, b) => a + b, 0) / values.length;
+        
+        // Store current stats for trend comparison
+        const currentStats = { min, max, avg, dataPoints: historicalData.length };
+        
+        // Update summary statistics with real data
+        document.getElementById('reportPeriod').textContent = 
+            `${historicalData[0].timestamp.toLocaleDateString()} - ${historicalData[historicalData.length-1].timestamp.toLocaleDateString()}`;
+        document.getElementById('reportDataPoints').textContent = historicalData.length;
+        document.getElementById('reportMin').textContent = min.toFixed(2) + ' PPM';
+        document.getElementById('reportMax').textContent = max.toFixed(2) + ' PPM';
+        document.getElementById('reportAvg').textContent = avg.toFixed(2) + ' PPM';
+        
+        // Determine risk level based on real data
+        let riskLevel = 'Low';
+        let riskColor = '#10b981';
+        if (avg > DANGER_THRESHOLD) {
+            riskLevel = 'High';
+            riskColor = '#ef4444';
+        } else if (avg > WARNING_THRESHOLD) {
+            riskLevel = 'Medium';
+            riskColor = '#f59e0b';
+        }
+        document.getElementById('reportRisk').textContent = riskLevel;
+        document.getElementById('reportRisk').style.color = riskColor;
+        
+        // Update trends if we have previous data
+        if (previousStats) {
+            updateTrendIndicators(currentStats, previousStats);
+        }
+        
+        // Store current stats for next comparison
+        previousStats = currentStats;
+        
+        // Update health impact based on real data
+        updateHealthImpact(avg);
+        
+        // Update prediction analysis
+        if (predictionData) {
+            document.getElementById('predAnalysisLevel').textContent = predictionData.maxPrediction.toFixed(2) + ' PPM';
+            document.getElementById('predAnalysisConfidence').textContent = predictionData.confidence.toFixed(0) + '%';
+            document.getElementById('predAnalysisTrend').textContent = 
+                predictionData.slope > 0 ? 'Increasing' : predictionData.slope < 0 ? 'Decreasing' : 'Stable';
+            document.getElementById('predAnalysisRate').textContent = 
+                (predictionData.rateOfChange > 0 ? '+' : '') + predictionData.rateOfChange.toFixed(2) + ' PPM/hr';
+        } else {
+            document.getElementById('predAnalysisLevel').textContent = 'Not available';
+            document.getElementById('predAnalysisConfidence').textContent = '--';
+            document.getElementById('predAnalysisTrend').textContent = '--';
+            document.getElementById('predAnalysisRate').textContent = '--';
+        }
+    }
+
+    function updateTrendIndicators(current, previous) {
+        // Update min trend
+        const minTrend = document.getElementById('minTrend');
+        const minChange = current.min - previous.min;
+        if (minChange > 0) {
+            minTrend.innerHTML = '<i class="fas fa-arrow-up trend-arrow up"></i><span>+' + minChange.toFixed(1) + ' PPM</span>';
+        } else if (minChange < 0) {
+            minTrend.innerHTML = '<i class="fas fa-arrow-down trend-arrow down"></i><span>' + minChange.toFixed(1) + ' PPM</span>';
+        } else {
+            minTrend.innerHTML = '<i class="fas fa-minus trend-arrow stable"></i><span>No change</span>';
+        }
+        
+        // Update max trend
+        const maxTrend = document.getElementById('maxTrend');
+        const maxChange = current.max - previous.max;
+        if (maxChange > 0) {
+            maxTrend.innerHTML = '<i class="fas fa-arrow-up trend-arrow up"></i><span>+' + maxChange.toFixed(1) + ' PPM</span>';
+        } else if (maxChange < 0) {
+            maxTrend.innerHTML = '<i class="fas fa-arrow-down trend-arrow down"></i><span>' + maxChange.toFixed(1) + ' PPM</span>';
+        } else {
+            maxTrend.innerHTML = '<i class="fas fa-minus trend-arrow stable"></i><span>No change</span>';
+        }
+        
+        // Update average trend
+        const avgTrend = document.getElementById('avgTrend');
+        const avgChange = current.avg - previous.avg;
+        if (avgChange > 0) {
+            avgTrend.innerHTML = '<i class="fas fa-arrow-up trend-arrow up"></i><span>+' + avgChange.toFixed(1) + ' PPM</span>';
+        } else if (avgChange < 0) {
+            avgTrend.innerHTML = '<i class="fas fa-arrow-down trend-arrow down"></i><span>' + avgChange.toFixed(1) + ' PPM</span>';
+        } else {
+            avgTrend.innerHTML = '<i class="fas fa-minus trend-arrow stable"></i><span>No change</span>';
+        }
+    }
+
+    function updateHealthImpact(avgValue) {
+        const healthImpact = document.getElementById('healthImpact');
+        const title = document.getElementById('healthImpactTitle');
+        const message = document.getElementById('healthImpactMessage');
+        const recommendations = document.getElementById('healthImpactRecommendations');
+        
+        let riskLevel = 'low';
+        let risk = healthRisks.low;
+        
+        if (avgValue > healthRisks.severe.threshold) {
+            riskLevel = 'severe';
+            risk = healthRisks.severe;
+        } else if (avgValue > healthRisks.high.threshold) {
+            riskLevel = 'high';
+            risk = healthRisks.high;
+        } else if (avgValue > healthRisks.moderate.threshold) {
+            riskLevel = 'moderate';
+            risk = healthRisks.moderate;
+        }
+        
+        healthImpact.className = 'health-impact ' + riskLevel;
+        title.textContent = risk.title;
+        message.textContent = risk.message;
+        
+        // Clear and update recommendations
+        recommendations.innerHTML = '';
+        risk.recommendations.forEach(rec => {
+            const li = document.createElement('li');
+            li.textContent = rec;
+            recommendations.appendChild(li);
+        });
+    }
+
+    function toggleReport() {
+        const content = document.getElementById('reportContent');
+        const toggle = document.getElementById('reportToggle');
+        
+        content.classList.toggle('expanded');
+        toggle.classList.toggle('expanded');
+    }
+
     // Fetch and update data
     async function updateData() {
         if (connectionState === 'connecting') {
@@ -734,7 +1612,8 @@
         }
 
         try {
-            const response = await fetch(`https://api.thingspeak.com/channels/${CH_ID}/feeds.json?api_key=${READ_KEY}&results=20`);
+            // Fetch more data points for better analysis
+            const response = await fetch(`https://api.thingspeak.com/channels/${CH_ID}/feeds.json?api_key=${READ_KEY}&results=100`);
             
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
@@ -790,15 +1669,19 @@
         if (gasValue > DANGER_THRESHOLD) {
             statusIndicator.className = 'status-indicator danger';
             statusText.textContent = 'Danger';
-            showAlert(`DANGER: Gas level ${gasValue.toFixed(1)} PPM exceeds safe limit!`, 'danger');
         } else if (gasValue > WARNING_THRESHOLD) {
             statusIndicator.className = 'status-indicator warning';
             statusText.textContent = 'Warning';
-            showAlert(`WARNING: Gas level elevated at ${gasValue.toFixed(1)} PPM`, 'warning');
         } else {
             statusIndicator.className = 'status-indicator safe';
             statusText.textContent = 'Safe';
         }
+        
+        // Update health indicator
+        updateHealthIndicator(gasValue);
+        
+        // Check for health alerts
+        checkHealthAlert(gasValue);
         
         // Update last sync and update time
         const now = new Date();
@@ -806,142 +1689,124 @@
         document.getElementById('lastUpdate').textContent = now.toLocaleTimeString();
     }
 
+    function updateHealthIndicator(value) {
+        const healthIndicator = document.getElementById('healthIndicator');
+        
+        if (value > healthRisks.severe.threshold) {
+            healthIndicator.className = 'health-indicator severe';
+        } else if (value > healthRisks.high.threshold) {
+            healthIndicator.className = 'health-indicator high';
+        } else if (value > healthRisks.moderate.threshold) {
+            healthIndicator.className = 'health-indicator moderate';
+        } else {
+            healthIndicator.className = 'health-indicator low';
+        }
+    }
+
+    function checkHealthAlert(value) {
+        let currentRiskLevel = 'low';
+        
+        if (value > healthRisks.severe.threshold) {
+            currentRiskLevel = 'severe';
+        } else if (value > healthRisks.high.threshold) {
+            currentRiskLevel = 'high';
+        } else if (value > healthRisks.moderate.threshold) {
+            currentRiskLevel = 'moderate';
+        }
+        
+        // Only show alert if risk level has changed
+        if (currentRiskLevel !== lastHealthAlertLevel) {
+            lastHealthAlertLevel = currentRiskLevel;
+            showHealthPopup(currentRiskLevel);
+        }
+    }
+
+    function showHealthPopup(riskLevel) {
+        const popup = document.getElementById('healthPopup');
+        const icon = document.getElementById('healthPopupIcon');
+        const title = document.getElementById('healthPopupTitle');
+        const message = document.getElementById('healthPopupMessage');
+        const recommendations = document.getElementById('healthPopupRecommendations');
+        
+        const risk = healthRisks[riskLevel];
+        
+        icon.className = `health-popup-icon ${riskLevel}`;
+        title.textContent = risk.title;
+        message.textContent = risk.message;
+        
+        // Clear and update recommendations
+        recommendations.innerHTML = '';
+        risk.recommendations.forEach(rec => {
+            const li = document.createElement('li');
+            li.textContent = rec;
+            recommendations.appendChild(li);
+        });
+        
+        popup.classList.add('active');
+    }
+
+    function showHealthDetails() {
+        if (historicalData.length === 0) return;
+        
+        const latest = historicalData[historicalData.length - 1];
+        const gasValue = latest.value;
+        
+        let riskLevel = 'low';
+        
+        if (gasValue > healthRisks.severe.threshold) {
+            riskLevel = 'severe';
+        } else if (gasValue > healthRisks.high.threshold) {
+            riskLevel = 'high';
+        } else if (gasValue > healthRisks.moderate.threshold) {
+            riskLevel = 'moderate';
+        }
+        
+        showHealthPopup(riskLevel);
+    }
+
+    function closeHealthPopup() {
+        document.getElementById('healthPopup').classList.remove('active');
+    }
+
     function updateChart() {
         if (!gasChart || historicalData.length === 0) return;
         
-        // Get data from the last 6 hours
+        // Get data from the last 6 hours but sample fewer points for better visibility
         const now = new Date();
         const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
         const filteredData = historicalData.filter(d => d.timestamp >= sixHoursAgo);
         
+        // Sample data to show fewer points with better spacing
+        const sampledData = [];
+        const step = Math.max(1, Math.floor(filteredData.length / 15)); // Show max 15 points
+        
+        for (let i = 0; i < filteredData.length; i += step) {
+            sampledData.push(filteredData[i]);
+        }
+        
+        // Make sure we include the latest data point
+        if (sampledData[sampledData.length - 1] !== filteredData[filteredData.length - 1]) {
+            sampledData.push(filteredData[filteredData.length - 1]);
+        }
+        
         // Update historical data
-        gasChart.data.datasets[0].data = filteredData.map(d => ({
+        gasChart.data.datasets[0].data = sampledData.map(d => ({
             x: d.timestamp,
             y: d.value
         }));
         
         // Update threshold lines
-        gasChart.data.datasets[2].data = filteredData.map(d => ({
+        gasChart.data.datasets[1].data = sampledData.map(d => ({
             x: d.timestamp,
             y: WARNING_THRESHOLD
         }));
         
-        gasChart.data.datasets[3].data = filteredData.map(d => ({
+        gasChart.data.datasets[2].data = sampledData.map(d => ({
             x: d.timestamp,
             y: DANGER_THRESHOLD
         }));
         
         gasChart.update();
-    }
-
-    function generatePrediction() {
-        if (historicalData.length < 5) return;
-        
-        // Use more data points for better prediction
-        const recent = historicalData.slice(-15);
-        const n = recent.length;
-        const x = Array.from({length: n}, (_, i) => i);
-        const y = recent.map(d => d.value);
-        
-        // Calculate linear regression
-        let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
-        for (let i = 0; i < n; i++) {
-            sumX += x[i];
-            sumY += y[i];
-            sumXY += x[i] * y[i];
-            sumX2 += x[i] * x[i];
-        }
-        
-        const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
-        const intercept = (sumY - slope * sumX) / n;
-        
-        // Calculate R-squared for confidence
-        let yMean = sumY / n;
-        let ssTotal = 0, ssResidual = 0;
-        for (let i = 0; i < n; i++) {
-            const yPred = slope * x[i] + intercept;
-            ssTotal += Math.pow(y[i] - yMean, 2);
-            ssResidual += Math.pow(y[i] - yPred, 2);
-        }
-        const rSquared = 1 - (ssResidual / ssTotal);
-        const confidence = Math.min(95, Math.max(50, rSquared * 100));
-        
-        // Generate predictions for next 2 hours (40 points at 3-minute intervals)
-        const predictions = [];
-        const now = new Date();
-        for (let i = 1; i <= 40; i++) {
-            const futureTime = new Date(now.getTime() + i * 3 * 60 * 1000);
-            const predictedValue = slope * (n + i) + intercept;
-            predictions.push({
-                x: futureTime,
-                y: Math.max(0, predictedValue)
-            });
-        }
-        
-        // Update prediction dataset
-        gasChart.data.datasets[1].data = predictions;
-        gasChart.update();
-        
-        // Update prediction card
-        if (predictions.length > 0) {
-            const predictionAt2Hours = predictions[predictions.length - 1].y;
-            const predictionValueElement = document.getElementById('predictionValue');
-            predictionValueElement.textContent = predictionAt2Hours.toFixed(1) + ' PPM';
-            
-            // Update prediction status
-            if (predictionAt2Hours > DANGER_THRESHOLD) {
-                predictionValueElement.className = 'prediction-value danger';
-            } else if (predictionAt2Hours > WARNING_THRESHOLD) {
-                predictionValueElement.className = 'prediction-value warning';
-            } else {
-                predictionValueElement.className = 'prediction-value safe';
-            }
-            
-            // Update confidence
-            document.getElementById('confidenceFill').style.width = confidence + '%';
-            document.getElementById('confidenceText').textContent = confidence.toFixed(0) + '%';
-            
-            // Update risk assessment
-            updateRiskAssessment(predictionAt2Hours, confidence);
-        }
-    }
-
-    function updateRiskAssessment(predictionValue, confidence) {
-        const riskLevelElement = document.getElementById('riskLevel');
-        const riskDescriptionElement = document.getElementById('riskDescription');
-        
-        if (predictionValue > DANGER_THRESHOLD) {
-            riskLevelElement.textContent = 'High';
-            riskLevelElement.className = 'prediction-value danger';
-            riskDescriptionElement.textContent = 'Dangerous levels expected in 2 hours';
-        } else if (predictionValue > WARNING_THRESHOLD) {
-            riskLevelElement.textContent = 'Medium';
-            riskLevelElement.className = 'prediction-value warning';
-            riskDescriptionElement.textContent = 'Warning levels expected in 2 hours';
-        } else {
-            riskLevelElement.textContent = 'Low';
-            riskLevelElement.className = 'prediction-value safe';
-            riskDescriptionElement.textContent = 'Gas levels are expected to remain safe';
-        }
-        
-        // Add confidence to description
-        riskDescriptionElement.textContent += ` (${confidence.toFixed(0)}% confidence)`;
-    }
-
-    function showAlert(message, type) {
-        const banner = document.getElementById('alertBanner');
-        const messageElement = document.getElementById('alertMessage');
-        
-        banner.className = 'alert-banner';
-        if (type === 'warning') banner.classList.add('warning');
-        if (type === 'info') banner.classList.add('info');
-        
-        messageElement.textContent = message;
-        banner.style.display = 'block';
-        
-        setTimeout(() => {
-            banner.style.display = 'none';
-        }, 5000);
     }
 
     function updateConnectionStatus(status) {
@@ -991,13 +1856,13 @@
     }
 
     function disableControls() {
-        document.getElementById('ventilateBtn').disabled = true;
-        document.getElementById('emergencyBtn').disabled = true;
+        document.getElementById('downloadBtn').disabled = true;
+        document.getElementById('refreshBtn').disabled = true;
     }
 
     function enableControls() {
-        document.getElementById('ventilateBtn').disabled = false;
-        document.getElementById('emergencyBtn').disabled = false;
+        document.getElementById('downloadBtn').disabled = false;
+        document.getElementById('refreshBtn').disabled = false;
     }
 
     function handleRetry() {
@@ -1024,34 +1889,32 @@
         updateData();
     }
 
-    async function sendControl(command) {
-        if (connectionState !== 'connected') {
-            showAlert('Cannot send command: Not connected to ThingSpeak', 'warning');
+    function downloadData() {
+        if (historicalData.length === 0) {
+            alert('No data available to download');
             return;
         }
-
-        try {
-            const response = await fetch(`https://api.thingspeak.com/talkbacks/${TB_ID}/commands.json?api_key=${TB_KEY}&command_string=${command}`, {
-                method: 'POST'
-            });
-            
-            if (response.ok) {
-                // Show appropriate feedback
-                switch(command) {
-                    case 'VENTILATE':
-                        showAlert('Ventilation system activated', 'info');
-                        break;
-                    case 'EMERGENCY':
-                        showAlert('Emergency protocol activated!', 'danger');
-                        break;
-                }
-            } else {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-        } catch (error) {
-            console.error('Error sending command:', error);
-            showAlert('Network error - command not sent', 'danger');
-        }
+        
+        // Create CSV content
+        let csvContent = "Timestamp,Gas Level (PPM),Fire Status\n";
+        
+        historicalData.forEach(data => {
+            const timestamp = data.timestamp.toISOString();
+            const gasLevel = data.value;
+            const fireStatus = data.fire === "0" ? "Fire Detected" : "Safe";
+            csvContent += `${timestamp},${gasLevel},${fireStatus}\n`;
+        });
+        
+        // Create download link
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `gas_data_${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
     }
 
     function refreshData() {
