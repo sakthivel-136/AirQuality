@@ -1,240 +1,552 @@
-#include <ESP8266WiFi.h>
-#include <ESP8266HTTPClient.h>
-#include <ThingSpeak.h>
-#include <DHT.h>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gas Monitoring System Dashboard</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-// ---------------- WIFI ----------------
-const char* ssid = "VKD-C32";
-const char* pass = "rekhasakthi2007";
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
 
-// ---------------- THINGSPEAK ----------------
-unsigned long myChannelNumber = 3221984;
-const char* myWriteAPIKey = "AKT7J4I46XGYM7VY";
-const char* talkBackID = "64U4IA5216OLCOX8";
-const char* talkBackKey = "AKT7J4I46XGYM7VY";
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
 
-// ---------------- PINS ----------------
-#define DHTPIN D3
-#define DHTTYPE DHT11
+        header {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
 
-int ledPin = D0;
-int buzzer = D5;
-int mq135Pin = A0;
-int mq2Pin = D2;
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
 
-DHT dht(DHTPIN, DHTTYPE);
-WiFiClient client;
+        h1 {
+            color: #333;
+            font-size: 2.5em;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
 
-bool sensorsActive = true;
-unsigned long lastTime = 0;
-const unsigned long timerDelay = 180000; // 3 min
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            border-radius: 50px;
+            font-weight: bold;
+            animation: pulse 2s infinite;
+        }
 
-// -------------------------------------------------
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
 
-void setup() {
-  Serial.begin(115200);
-  
-  // Enhanced startup UI
-  printSeparator();
-  Serial.println("      GAS MONITORING SYSTEM");
-  Serial.println("    ESP8266 + ThingSpeak IoT");
-  printSeparator();
-  Serial.println();
-  
-  pinMode(ledPin, OUTPUT);
-  pinMode(buzzer, OUTPUT);
-  pinMode(mq2Pin, INPUT);
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
 
-  dht.begin();
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
 
-  Serial.print("Connecting to WiFi: ");
-  Serial.println(ssid);
-  
-  digitalWrite(ledPin, HIGH);
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+        }
 
-  int attempts = 0;
-  while (WiFi.status() != WL_CONNECTED && attempts < 20) {
-    delay(500);
-    Serial.print(".");
-    attempts++;
-  }
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
 
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("\n✓ WiFi Connected!");
-    Serial.print("IP Address: ");
-    Serial.println(WiFi.localIP());
-    digitalWrite(ledPin, LOW);
-  } else {
-    Serial.println("\n✗ WiFi Connection Failed!");
-  }
+        .card-title {
+            font-size: 1.2em;
+            color: #555;
+            font-weight: 600;
+        }
 
-  ThingSpeak.begin(client);
-  Serial.println("✓ ThingSpeak Initialized");
-  Serial.println();
-  printSeparator();
-  Serial.println("System Ready - Monitoring Started");
-  printSeparator();
-}
+        .card-icon {
+            font-size: 2em;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 15px;
+        }
 
-// -------------------------------------------------
+        .temp-icon { background: linear-gradient(135deg, #ff6b6b, #ff8e53); color: white; }
+        .humidity-icon { background: linear-gradient(135deg, #4facfe, #00f2fe); color: white; }
+        .gas-icon { background: linear-gradient(135deg, #fa709a, #fee140); color: white; }
+        .status-icon { background: linear-gradient(135deg, #30cfd0, #330867); color: white; }
 
-String getTalkBackCommand() {
-  HTTPClient http;
-  WiFiClient clientHttp;
+        .card-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #333;
+            margin: 10px 0;
+        }
 
-  String url = "http://api.thingspeak.com/talkbacks/" +
-               String(talkBackID) +
-               "/commands/execute.json?api_key=" +
-               String(talkBackKey);
+        .card-unit {
+            font-size: 0.5em;
+            color: #888;
+        }
 
-  http.begin(clientHttp, url);
+        .card-status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 600;
+            margin-top: 10px;
+        }
 
-  int httpCode = http.GET();
+        .status-safe {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
 
-  String payload = (httpCode > 0) ? http.getString() : "";
+        .status-warning {
+            background: #fff3e0;
+            color: #f57c00;
+        }
 
-  http.end();
+        .status-danger {
+            background: #ffebee;
+            color: #c62828;
+            animation: blink 1s infinite;
+        }
 
-  if (payload.indexOf("TURN_OFF") != -1) return "TURN_OFF";
-  if (payload.indexOf("TURN_ON") != -1) return "TURN_ON";
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0.5; }
+        }
 
-  return "";
-}
+        .chart-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
 
-// -------------------------------------------------
+        .chart-header {
+            font-size: 1.5em;
+            color: #333;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
 
-void printSeparator() {
-  Serial.println("====================================");
-}
+        .alert-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            max-width: 400px;
+        }
 
-void printSensorStatus(float temperature, float humidity, int gasPPM, bool gasDetected) {
-  Serial.println();
-  printSeparator();
-  Serial.println("       SENSOR READINGS");
-  printSeparator();
-  
-  // Temperature
-  Serial.print("Temperature: ");
-  Serial.print(temperature, 1);
-  Serial.print(" °C");
-  if (temperature >= 40) {
-    Serial.print(" [HIGH]");
-  }
-  Serial.println();
-  
-  // Humidity
-  Serial.print("Humidity: ");
-  Serial.print(humidity, 1);
-  Serial.println(" %");
-  
-  // Gas PPM
-  Serial.print("Gas PPM (MQ135): ");
-  Serial.print(gasPPM);
-  if (gasPPM > 900) {
-    Serial.print(" [DANGER]");
-  }
-  Serial.println();
-  
-  // Gas Detection
-  Serial.print("Gas Detection (MQ2): ");
-  if (gasDetected) {
-    Serial.println("⚠ GAS DETECTED!");
-  } else {
-    Serial.println("✓ Safe");
-  }
-  
-  printSeparator();
-  
-  // System Status
-  Serial.print("System Status: ");
-  Serial.println(sensorsActive ? "ACTIVE" : "INACTIVE");
-  
-  // Buzzer Status
-  Serial.print("Buzzer: ");
-  if (temperature >= 40 || gasPPM > 900 || gasDetected) {
-    Serial.println("⚠ ACTIVE");
-  } else {
-    Serial.println("✓ Silent");
-  }
-  
-  printSeparator();
-}
+        .alert {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            display: none;
+            animation: slideIn 0.5s ease;
+        }
 
-void loop() {
-  // LED blink if WiFi OK
-  if (WiFi.status() == WL_CONNECTED) {
-    digitalWrite(ledPin, !digitalRead(ledPin));
-  } else {
-    digitalWrite(ledPin, LOW);
-    Serial.println("⚠ WiFi Disconnected!");
-  }
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
 
-  // Check TalkBack
-  String command = getTalkBackCommand();
+        .alert-danger {
+            border-left: 5px solid #f44336;
+        }
 
-  if (command == "TURN_OFF") {
-    if (sensorsActive) {
-      sensorsActive = false;
-      Serial.println();
-      printSeparator();
-      Serial.println("⚠ SENSORS DEACTIVATED");
-      printSeparator();
-    }
-  }
-  if (command == "TURN_ON") {
-    if (!sensorsActive) {
-      sensorsActive = true;
-      Serial.println();
-      printSeparator();
-      Serial.println("✓ SENSORS ACTIVATED");
-      printSeparator();
-    }
-  }
+        .alert-warning {
+            border-left: 5px solid #ff9800;
+        }
 
-  if (sensorsActive) {
-    // -------- READ SENSORS --------
-    float humidity = dht.readHumidity();
-    float temperature = dht.readTemperature();
+        .alert-title {
+            font-weight: bold;
+            font-size: 1.1em;
+            margin-bottom: 5px;
+            color: #333;
+        }
 
-    int gasPPM = analogRead(mq135Pin);   // MAIN GAS VALUE
-    bool gasDetected = (digitalRead(mq2Pin) == LOW);
+        .alert-message {
+            color: #666;
+        }
 
-    // -------- ENHANCED UI --------
-    printSensorStatus(temperature, humidity, gasPPM, gasDetected);
+        .last-update {
+            text-align: center;
+            color: white;
+            font-size: 0.9em;
+            margin-top: 20px;
+            opacity: 0.8;
+        }
 
-    // -------- BUZZER LOGIC --------
-    if (temperature >= 40 || gasPPM > 900 || gasDetected) {
-      digitalWrite(buzzer, HIGH);
-      Serial.println("⚠ WARNING: Buzzer Activated!");
-    } else {
-      digitalWrite(buzzer, LOW);
-    }
+        .refresh-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 50px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
 
-    // -------- THINGSPEAK UPLOAD --------
-    if (millis() - lastTime > timerDelay || lastTime == 0) {
-      Serial.println();
-      Serial.println("Uploading data to ThingSpeak...");
-      
-      ThingSpeak.setField(1, gasPPM);                       // GAS
-      ThingSpeak.setField(2, (gasDetected ? 1 : 0));        // FIRE/GAS
-      ThingSpeak.setField(3, temperature);                 // TEMP
-      ThingSpeak.setField(4, humidity);                    // HUMIDITY
+        .refresh-btn:hover {
+            transform: scale(1.05);
+        }
 
-      int status = ThingSpeak.writeFields(
-                    myChannelNumber,
-                    myWriteAPIKey
-                  );
+        .refresh-btn:active {
+            transform: scale(0.95);
+        }
 
-      if (status == 200) {
-        Serial.println("✓ ThingSpeak Upload Successful");
-      } else {
-        Serial.print("✗ Upload Failed: ");
-        Serial.println(status);
-      }
+        @media (max-width: 768px) {
+            h1 { font-size: 1.8em; }
+            .dashboard { grid-template-columns: 1fr; }
+            .alert-container { 
+                left: 20px;
+                right: 20px;
+                max-width: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-content">
+                <h1>
+                    <i class="fas fa-shield-alt"></i>
+                    Gas Monitoring System
+                </h1>
+                <div>
+                    <span class="status-badge">
+                        <i class="fas fa-circle"></i>
+                        <span id="systemStatus">ONLINE</span>
+                    </span>
+                    <button class="refresh-btn" onclick="fetchData()">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
+                </div>
+            </div>
+        </header>
 
-      lastTime = millis();
-    }
-  }
+        <div class="dashboard">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Temperature</div>
+                    <div class="card-icon temp-icon">
+                        <i class="fas fa-thermometer-half"></i>
+                    </div>
+                </div>
+                <div class="card-value">
+                    <span id="temperature">--</span>
+                    <span class="card-unit">°C</span>
+                </div>
+                <div id="tempStatus" class="card-status status-safe">Normal</div>
+            </div>
 
-  delay(2000); // Increased delay for better readability
-}
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Humidity</div>
+                    <div class="card-icon humidity-icon">
+                        <i class="fas fa-tint"></i>
+                    </div>
+                </div>
+                <div class="card-value">
+                    <span id="humidity">--</span>
+                    <span class="card-unit">%</span>
+                </div>
+                <div id="humidityStatus" class="card-status status-safe">Normal</div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Gas Level</div>
+                    <div class="card-icon gas-icon">
+                        <i class="fas fa-wind"></i>
+                    </div>
+                </div>
+                <div class="card-value">
+                    <span id="gasLevel">--</span>
+                    <span class="card-unit">PPM</span>
+                </div>
+                <div id="gasStatus" class="card-status status-safe">Safe</div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Gas Detection</div>
+                    <div class="card-icon status-icon">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                </div>
+                <div class="card-value">
+                    <span id="gasDetection">--</span>
+                </div>
+                <div id="detectionStatus" class="card-status status-safe">No Gas</div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <div class="chart-header">
+                <i class="fas fa-chart-line"></i> Historical Data
+            </div>
+            <canvas id="dataChart" width="400" height="150"></canvas>
+        </div>
+
+        <div class="last-update">
+            Last updated: <span id="lastUpdate">Never</span>
+        </div>
+    </div>
+
+    <div class="alert-container" id="alertContainer"></div>
+
+    <script>
+        // ThingSpeak configuration
+        const CHANNEL_ID = '3221984';
+        const READ_API_KEY = 'AKT7J4I46XGYM7VY';
+        const UPDATE_INTERVAL = 15000; // 15 seconds
+
+        // Chart setup
+        const ctx = document.getElementById('dataChart').getContext('2d');
+        const dataChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [
+                    {
+                        label: 'Temperature (°C)',
+                        data: [],
+                        borderColor: '#ff6b6b',
+                        backgroundColor: 'rgba(255, 107, 107, 0.1)',
+                        tension: 0.4
+                    },
+                    {
+                        label: 'Gas Level (PPM)',
+                        data: [],
+                        borderColor: '#fa709a',
+                        backgroundColor: 'rgba(250, 112, 154, 0.1)',
+                        tension: 0.4,
+                        yAxisID: 'y1'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                    }
+                },
+                scales: {
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        title: {
+                            display: true,
+                            text: 'Temperature (°C)'
+                        }
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        title: {
+                            display: true,
+                            text: 'Gas Level (PPM)'
+                        },
+                        grid: {
+                            drawOnChartArea: false,
+                        },
+                    },
+                }
+            }
+        });
+
+        function showAlert(type, title, message) {
+            const alertContainer = document.getElementById('alertContainer');
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.innerHTML = `
+                <div class="alert-title">${title}</div>
+                <div class="alert-message">${message}</div>
+            `;
+            alertContainer.appendChild(alert);
+            alert.style.display = 'block';
+
+            setTimeout(() => {
+                alert.style.animation = 'slideIn 0.5s ease reverse';
+                setTimeout(() => {
+                    alert.remove();
+                }, 500);
+            }, 5000);
+        }
+
+        function updateStatus(elementId, value, thresholds) {
+            const element = document.getElementById(elementId);
+            if (value >= thresholds.danger) {
+                element.className = 'card-status status-danger';
+                element.textContent = thresholds.dangerText;
+                return 'danger';
+            } else if (value >= thresholds.warning) {
+                element.className = 'card-status status-warning';
+                element.textContent = thresholds.warningText;
+                return 'warning';
+            } else {
+                element.className = 'card-status status-safe';
+                element.textContent = thresholds.safeText;
+                return 'safe';
+            }
+        }
+
+        async function fetchData() {
+            try {
+                const response = await fetch(
+                    `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds/last.json?api_key=${READ_API_KEY}`
+                );
+                const data = await response.json();
+
+                if (data) {
+                    // Update values
+                    const temperature = parseFloat(data.field3) || 0;
+                    const humidity = parseFloat(data.field4) || 0;
+                    const gasLevel = parseInt(data.field1) || 0;
+                    const gasDetected = parseInt(data.field2) || 0;
+
+                    document.getElementById('temperature').textContent = temperature.toFixed(1);
+                    document.getElementById('humidity').textContent = humidity.toFixed(1);
+                    document.getElementById('gasLevel').textContent = gasLevel;
+                    document.getElementById('gasDetection').textContent = gasDetected ? 'DETECTED' : 'SAFE';
+
+                    // Update statuses
+                    const tempStatus = updateStatus('tempStatus', temperature, {
+                        danger: 40,
+                        warning: 35,
+                        safeText: 'Normal',
+                        warningText: 'High',
+                        dangerText: 'Danger!'
+                    });
+
+                    const gasStatus = updateStatus('gasStatus', gasLevel, {
+                        danger: 900,
+                        warning: 600,
+                        safeText: 'Safe',
+                        warningText: 'Elevated',
+                        dangerText: 'Danger!'
+                    });
+
+                    // Update gas detection status
+                    const detectionStatus = document.getElementById('detectionStatus');
+                    if (gasDetected) {
+                        detectionStatus.className = 'card-status status-danger';
+                        detectionStatus.textContent = 'GAS DETECTED!';
+                        showAlert('danger', '⚠️ Gas Alert', 'Gas has been detected in the area!');
+                    } else {
+                        detectionStatus.className = 'card-status status-safe';
+                        detectionStatus.textContent = 'No Gas';
+                    }
+
+                    // Check for alerts
+                    if (tempStatus === 'danger') {
+                        showAlert('danger', '🌡️ Temperature Alert', `Temperature is critically high: ${temperature.toFixed(1)}°C`);
+                    } else if (tempStatus === 'warning') {
+                        showAlert('warning', '⚠️ Temperature Warning', `Temperature is elevated: ${temperature.toFixed(1)}°C`);
+                    }
+
+                    if (gasStatus === 'danger') {
+                        showAlert('danger', '💨 Gas Alert', `Gas level is critically high: ${gasLevel} PPM`);
+                    }
+
+                    // Update chart
+                    const now = new Date();
+                    const timeLabel = now.toLocaleTimeString();
+                    
+                    if (dataChart.data.labels.length > 10) {
+                        dataChart.data.labels.shift();
+                        dataChart.data.datasets[0].data.shift();
+                        dataChart.data.datasets[1].data.shift();
+                    }
+                    
+                    dataChart.data.labels.push(timeLabel);
+                    dataChart.data.datasets[0].data.push(temperature);
+                    dataChart.data.datasets[1].data.push(gasLevel);
+                    dataChart.update();
+
+                    // Update last update time
+                    document.getElementById('lastUpdate').textContent = now.toLocaleString();
+                    document.getElementById('systemStatus').textContent = 'ONLINE';
+                }
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                document.getElementById('systemStatus').textContent = 'OFFLINE';
+                showAlert('danger', 'Connection Error', 'Unable to fetch data from ThingSpeak');
+            }
+        }
+
+        // Initial fetch
+        fetchData();
+
+        // Auto-refresh
+        setInterval(fetchData, UPDATE_INTERVAL);
+    </script>
+</body>
+</html>
